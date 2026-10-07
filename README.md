@@ -11,7 +11,8 @@ Five Spring Boot features built for the backend interview prep assignment. Each 
 ```
 
 - The app starts on `http://localhost:8080`. Opening it in a browser redirects to the interactive API docs (Swagger UI) at `/swagger-ui.html`. The raw OpenAPI spec is at `/v3/api-docs`.
-- In Swagger UI: call `POST /api/auth/login`, copy the `accessToken`, click **Authorize** and paste it. Every "Try it out" request then sends the token.
+- In Swagger UI: call `POST /api/auth/login`, copy the `accessToken`, click **Authorize** and paste it. Every "Try it out" request then sends the token. Admin-only operations say "Requires ADMIN role".
+- "Try it out" on `GET /r/{code}` shows a failed request: the browser follows the 302 to an external site, which CORS blocks. Open `http://localhost:8080/r/<code>` directly in the browser instead.
 - Optional environment variables (nothing secret is stored in the code):
 
   | Variable | Purpose |

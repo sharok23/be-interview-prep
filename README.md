@@ -40,7 +40,7 @@ Five Spring Boot features built for the backend interview prep assignment. Each 
 |---|----------|---------|
 | 1 | Task Manager API | [#7](https://github.com/sharok23/be-interview-prep/pull/7) |
 | 2 | URL Shortener | [#8](https://github.com/sharok23/be-interview-prep/pull/8) |
-| 3 | Authentication & Roles | |
+| 3 | Authentication & Roles | [#9](https://github.com/sharok23/be-interview-prep/pull/9) |
 | 4 | Product Catalog | |
 | 5 | Order Service | |
 

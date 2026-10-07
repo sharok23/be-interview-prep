@@ -1,5 +1,6 @@
 package com.project.api.config;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 import org.slf4j.Logger;
@@ -39,6 +40,13 @@ public class AdminSeeder implements ApplicationRunner {
             return;
         }
         String username = adminUsername.trim().toLowerCase(Locale.ROOT);
+        if (!username.matches("[a-z0-9._-]{3,50}")) {
+            throw new IllegalStateException("ADMIN_USERNAME must be 3-50 letters, digits, '.', '_' or '-'");
+        }
+        int passwordBytes = adminPassword.getBytes(StandardCharsets.UTF_8).length;
+        if (adminPassword.length() < 8 || passwordBytes > 72) {
+            throw new IllegalStateException("ADMIN_PASSWORD must be at least 8 characters and at most 72 bytes");
+        }
         if (!users.existsByUsername(username)) {
             users.save(new User(username, passwordEncoder.encode(adminPassword), Role.ADMIN));
             log.info("Created admin user '{}'", username);

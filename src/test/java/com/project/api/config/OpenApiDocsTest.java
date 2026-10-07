@@ -2,6 +2,7 @@ package com.project.api.config;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -59,10 +60,12 @@ class OpenApiDocsTest {
                 .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("201")))
                 .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("200")))
                 .andExpect(jsonPath("$.paths['/r/{code}'].get.responses", hasKey("302")))
+                .andExpect(jsonPath("$.paths['/r/{code}'].get.responses", not(hasKey("200"))))
+                .andExpect(jsonPath("$.paths['/api/tasks'].post.responses", not(hasKey("200"))))
                 .andExpect(jsonPath("$.paths['/api/tasks/{id}'].get.responses", hasKey("404")))
                 .andExpect(jsonPath("$.paths['/api/tasks'].post.responses", hasKey("400")))
                 .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("409")))
-                .andExpect(jsonPath("$.paths['/api/tasks/{id}'].get.responses['404'].content['*/*'].schema.$ref")
+                .andExpect(jsonPath("$.paths['/api/tasks/{id}'].get.responses['404'].content['application/json'].schema.$ref")
                         .value(containsString("ApiError")))
                 .andExpect(jsonPath("$.paths['/api/products'].post.description").value("Requires ADMIN role"));
     }

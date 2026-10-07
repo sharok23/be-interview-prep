@@ -334,6 +334,7 @@ Response: `{id, status, items: [{productId, productName, quantity, unitPrice}], 
   - Paths, parameters, request and response schemas and validation rules are generated from the code.
   - Success codes that differ from 200 (201, the 200 retry or dedupe responses, the 302 redirect) are declared with `@ApiResponse`.
   - Error responses come from `@ResponseStatus` on each `GlobalExceptionHandler` method, so every operation documents the shared `ApiError` body.
+  - Known limitation: every operation lists the same shared set of error codes, not exactly the ones it can return. The 401/403 responses from the security filter aren't listed per operation; the "Requires ADMIN role" notes and the Authorize instructions cover them.
   - Admin-only operations say "Requires ADMIN role".
   - `OpenApiDocsTest` asserts these status codes, so the docs can't silently drift. The hand-written `sort` parameter description is the one exception.
   - The UI and spec need no login: they fall under the security config's `anyRequest().permitAll()`, outside `/api/**`. `OpenApiDocsTest` checks the spec and the redirect.

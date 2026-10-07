@@ -14,7 +14,9 @@ import com.project.api.contract.ShortenRequest;
 import com.project.api.contract.UrlStatsResponse;
 import com.project.api.exception.GoneException;
 import com.project.api.exception.NotFoundException;
+import com.project.api.model.CurrentUser;
 import com.project.api.model.ShortUrl;
+import com.project.api.model.User;
 import com.project.api.repository.ShortUrlRepository;
 
 @Service
@@ -25,17 +27,21 @@ public class ShortUrlService {
 
     private final ShortUrlRepository repository;
     private final ShortCodeGenerator codeGenerator;
+    private final UserService userService;
 
-    public ShortUrlService(ShortUrlRepository repository, ShortCodeGenerator codeGenerator) {
+    public ShortUrlService(ShortUrlRepository repository, ShortCodeGenerator codeGenerator,
+                           UserService userService) {
         this.repository = repository;
         this.codeGenerator = codeGenerator;
+        this.userService = userService;
     }
 
     public record ShortenResult(ShortUrlResponse response, boolean created) {
     }
 
-    public ShortenResult shorten(ShortenRequest request, String baseUrl) {
-        String dedupeKey = ShortUrl.dedupeKey(request.url(), request.expiresAt());
+    public ShortenResult shorten(ShortenRequest request, String baseUrl, CurrentUser user) {
+        User owner = userService.require(user.username());
+        String dedupeKey = ShortUrl.dedupeKey(owner.getUsername(), request.url(), request.expiresAt());
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             Optional<ShortUrl> existing = repository.findByDedupeKey(dedupeKey);
             if (existing.isPresent()) {
@@ -43,7 +49,7 @@ public class ShortUrlService {
             }
             try {
                 ShortUrl saved = repository.saveAndFlush(
-                        new ShortUrl(codeGenerator.next(), request.url(), request.expiresAt()));
+                        new ShortUrl(owner, codeGenerator.next(), request.url(), request.expiresAt()));
                 return new ShortenResult(ShortUrlResponse.from(saved, baseUrl), true);
             } catch (DataIntegrityViolationException duplicateKeyOrCode) {
                 log.debug("Shorten attempt {} hit a unique constraint, retrying", attempt + 1);
@@ -63,8 +69,12 @@ public class ShortUrlService {
     }
 
     @Transactional(readOnly = true)
-    public UrlStatsResponse stats(String code) {
-        return UrlStatsResponse.from(find(code));
+    public UrlStatsResponse stats(String code, CurrentUser user) {
+        ShortUrl shortUrl = find(code);
+        if (!user.admin() && !shortUrl.getOwner().getUsername().equals(user.username())) {
+            throw new NotFoundException("Short URL", code);
+        }
+        return UrlStatsResponse.from(shortUrl);
     }
 
     private ShortUrl find(String code) {

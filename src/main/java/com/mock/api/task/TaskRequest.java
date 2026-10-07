@@ -19,6 +19,12 @@ public record TaskRequest(
         @FutureOrPresent(message = "dueDate cannot be in the past")
         LocalDate dueDate) {
 
+    // Trim before validation runs so surrounding spaces don't count towards the length limits.
+    public TaskRequest {
+        title = title == null ? null : title.trim();
+        description = description == null || description.isBlank() ? null : description.trim();
+    }
+
     static final int TITLE_MAX = 100;
     static final int DESCRIPTION_MAX = 1000;
 }

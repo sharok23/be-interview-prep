@@ -22,7 +22,7 @@ public class TaskService {
     @Transactional
     public TaskResponse create(TaskRequest request) {
         TaskStatus status = request.status() == null ? TaskStatus.TODO : request.status();
-        Task task = new Task(request.title().trim(), request.description(), status, request.dueDate());
+        Task task = new Task(request.title(), request.description(), status, request.dueDate());
         return TaskResponse.from(repository.save(task));
     }
 
@@ -41,7 +41,7 @@ public class TaskService {
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = find(id);
         TaskStatus status = request.status() == null ? task.getStatus() : request.status();
-        task.update(request.title().trim(), request.description(), status, request.dueDate());
+        task.update(request.title(), request.description(), status, request.dueDate());
         return TaskResponse.from(task);
     }
 

@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Version;
 
 @Entity
 public class Task {
@@ -33,6 +34,10 @@ public class Task {
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    // Optimistic locking: a concurrent update or delete of the same task fails with 409 instead of lost writes.
+    @Version
+    private Long version;
 
     protected Task() {
     }

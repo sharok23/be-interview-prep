@@ -115,22 +115,33 @@ Build a service that turns long URLs into short links.
 - Visit counts stay accurate when many people open the same link at once.
 - At least one automated test.
 
-**Planned endpoints**
+**Endpoints**
 
 | Method | Path | Success | Errors |
 |--------|------|---------|--------|
-| POST | `/api/urls` `{url, expiresAt?}` | 201 `{code, shortUrl, ...}` | 400 |
+| POST | `/api/urls` `{url, expiresAt?}` | 201 new link, 200 existing link | 400 |
 | GET | `/r/{code}` | 302 to the original URL | 404 unknown, 410 expired |
-| GET | `/api/urls/{code}/stats` | 200 `{originalUrl, visits, createdAt}` | 404 |
+| GET | `/api/urls/{code}/stats` | 200 `{code, originalUrl, visits, createdAt, expiresAt}` | 404 |
 
-**Planned decisions**
-- **Codes:** 7 random Base62 characters from `SecureRandom`, backed by a unique constraint and regenerated on collision.
-  - Alternative: Base62 of the database id, which is predictable and leaks the volume of links.
-- **Same URL twice:** return the existing link if it has not expired, so duplicate rows aren't created.
-  - Alternative: a new code each time, which allows per-campaign stats.
-- **Visit counting:** a single atomic `UPDATE url SET visits = visits + 1 WHERE code = ?`, so concurrent visits are never lost.
-  - Alternative: read-modify-write, which loses updates under concurrency.
-- **URL validation:** only `http` and `https` URLs with a host are accepted.
+**Flow:** `ShortUrlController` → `ShortUrlService` → `ShortUrlRepository` → H2 `short_url` table. `ShortCodeGenerator` produces the codes.
+
+**Decisions**
+- **Codes:** 7 random Base62 characters (`[0-9A-Za-z]`, URL-safe) from `SecureRandom`. That gives 62^7 ≈ 3.5 trillion combinations, and a unique constraint on `code` guarantees uniqueness.
+  - On the rare collision, the insert fails and is retried with a new code (up to 5 attempts).
+  - Alternative: Base62 of the database id, which is predictable and leaks the number of links.
+- **Same URL twice:** the same URL with the same `expiresAt` returns the existing link with 200 instead of 201, so one long URL has one link and one set of stats. A different expiry is a different link.
+  - Alternative: a new code every time, which allows per-campaign stats but stores duplicates.
+- **Dedupe is safe under concurrency:** `dedupeKey` is the SHA-256 of `url|expiresAt`, with a unique constraint.
+  - Two simultaneous requests for the same URL can both find no existing row. The database lets only one insert succeed. The loser catches `DataIntegrityViolationException`, re-reads by `dedupeKey` and returns the winner's link.
+  - A test fires 50 simultaneous shorten requests and asserts exactly one link is created.
+  - `shorten` deliberately has no `@Transactional`. Each `saveAndFlush` runs in its own repository transaction, so a failed insert rolls back on its own and the retry can read the row the winner committed. Inside one service-level transaction, the first violation would mark the whole transaction rollback-only.
+  - A plain unique constraint on `(original_url, expires_at)` would not work, because NULL expiries are never equal in SQL and the URL column is 2048 characters long.
+- **URL normalisation:** the scheme and host are lowercased (`HTTPS://Example.com/x` equals `https://example.com/x`). The path stays case-sensitive because servers treat it that way. `expiresAt` is truncated to milliseconds so a resubmitted request matches the stored value.
+- **URL validation:** only `http`/`https` URLs with a well-formed host (dot-separated labels, optional port up to 65535) and RFC 3986 characters are accepted, up to 2048 characters. This rejects `ftp:`, `javascript:`, spaces and `http://.`.
+- **Visit counting:** a single atomic `UPDATE short_url SET visits = visits + 1 WHERE code = ?` per redirect. The database serialises the increments, so concurrent visits are never lost; a test fires 50 simultaneous visits.
+  - Alternative: read the count, add one and save. Two visitors would read the same value and one increment would be lost.
+- **302, not 301:** browsers cache a 301 and skip the server on later visits, so those visits would never be counted.
+- **Expired vs unknown:** an expired code returns 410 Gone (it existed, but is no longer valid) and is not counted. An unknown code returns 404. Stats stay viewable after expiry.
 
 ## Q3: Authentication & Roles
 

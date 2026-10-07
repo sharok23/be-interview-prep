@@ -65,8 +65,8 @@ public class OrderService {
         try {
             OrderResponse created = transaction.execute(status -> reserveAndSave(user, key, requestHash, quantities));
             return new PlaceResult(created, true);
-        } catch (DataIntegrityViolationException concurrentRetry) {
-            return findReplay(user, key, requestHash).orElseThrow(() -> concurrentRetry);
+        } catch (DataIntegrityViolationException | ConflictException | NotFoundException failed) {
+            return findReplay(user, key, requestHash).orElseThrow(() -> failed);
         }
     }
 

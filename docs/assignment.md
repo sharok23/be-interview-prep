@@ -222,23 +222,45 @@ Build a product listing API that stays fast as the catalog grows.
 - Repeated lookups of the same product don't query the database every time. Be able to show how we know.
 - At least one automated test.
 
-**Planned endpoints**
+**Endpoints** (all need a Bearer token)
 
-| Method | Path | Success | Errors |
-|--------|------|---------|--------|
-| GET | `/api/products?page&size&sort=price,desc&category&minPrice&maxPrice&inStock&q` | 200 page | 400 (unknown sort field, bad range) |
-| GET | `/api/products/{id}` | 200 (cached) | 404 |
-| PUT | `/api/products/{id}` | 200 (refreshes the cache) | 400, 404 |
-| DELETE | `/api/products/{id}` | 204 (evicts the cache) | 404 |
+| Method | Path | Access | Success | Errors |
+|--------|------|--------|---------|--------|
+| GET | `/api/products?category&minPrice&maxPrice&inStock&q&page&size&sort` | USER, ADMIN | 200 page | 400 |
+| GET | `/api/products/{id}` | USER, ADMIN | 200 (cached) | 404 |
+| POST | `/api/products` | ADMIN | 201 + `Location` | 400, 403 |
+| PUT | `/api/products/{id}` | ADMIN | 200 (evicts the cache) | 400, 403, 404, 409 |
+| DELETE | `/api/products/{id}` | ADMIN | 204 (evicts the cache) | 403, 404 |
 
-**Planned decisions**
-- **Filters:** JPA `Specification`s, one per filter, combined with `and`, so any combination works in one query.
-  - Alternative: one repository method per combination, which grows exponentially.
-- **Paging:** sort fields come from a whitelist. Page sizes above 100 are clamped to 100. The response is a page DTO with `content`, `page`, `size`, `totalElements` and `totalPages`.
-- **Caching:** Spring Cache with Caffeine. `@Cacheable("products")` on lookup, `@CachePut` on update, `@CacheEvict` on delete.
-- **Proving the cache works:** a test counts repository calls (`@MockitoSpyBean`), and Hibernate statistics or SQL logging show a single SELECT.
-- **Seeding:** an `ApplicationRunner` seeds 100 products.
-- **Indexes:** on `category` and `price`, for the common filters.
+**Page response:** `{content, page, size, totalElements, totalPages}`. Defaults are `page=0`, `size=20` and sort by `id`.
+- `sort=price,desc` sorts one field; repeat it (`sort=category&sort=price,desc`) for several.
+- Sortable fields: `id`, `name`, `category`, `price`, `stock`, `rating`, `createdAt`. `id` is always added as the last tiebreaker so paging is stable.
+
+**Flow:**
+- **Search:** `ProductController` → `ProductService.search` → `ProductSpecifications` builds one WHERE clause → `ProductRepository.findAll(spec, pageable)`, which runs a SELECT plus a COUNT.
+- **Lookup:** `ProductService.get` checks the Caffeine `products` cache first; on a miss it calls `findById` and stores the `ProductResponse`.
+
+**Decisions**
+- **Filters as JPA Specifications.** Each filter (category, minPrice, maxPrice, inStock, q) is a small `Specification`. Missing filters are `null` and `Specification.allOf` skips them, so any combination becomes a single query.
+  - Alternative: a repository method per combination, which grows to 2^5 methods.
+  - Category matching is case-insensitive, and `inStock=true` means `stock > 0` (`false` means no filter).
+  - `q` is a case-insensitive "contains" search on the name, with LIKE wildcards escaped so `%` matches a literal `%`.
+- **Paging:**
+  - A page size over 100 is **clamped** to 100 rather than rejected, so clients never break. The response shows the real size.
+  - `size < 1`, a negative page, a page whose offset would overflow, `minPrice > maxPrice` and unknown sort fields or directions return 400 with `fieldErrors`.
+  - Sort fields are whitelisted, so clients can't sort by internal columns.
+- **Caching single-product lookups (Caffeine via Spring Cache):**
+  - `@Cacheable` stores the immutable `ProductResponse` record, not the JPA entity, so callers can't modify cached state and lazy loading never runs outside a transaction.
+  - **Never stale:**
+    1. `TransactionAwareCacheManagerProxy` delays each evict until after the database commit. Otherwise a reader could re-cache the old row between the evict and the commit.
+    2. Update and delete *evict* instead of writing the new value. With `@CachePut`, two concurrent updates could write their values in the wrong order after commit.
+    3. `@Cacheable(sync = true)` loads each key exclusively. A slow read that loaded the old row can't write it back after an update's evict, because the evict waits for the load to finish. `ProductCacheTest.slowLookupRacingAnUpdateNeverLeavesStaleDataInTheCache` reproduces this race, and it fails without `sync = true`.
+  - Limits: at most 10,000 entries, and a 10-minute expiry as a safety net. A miss for an unknown id is not cached (the exception skips the cache).
+  - **How we know it works:** `ProductCacheTest` spies on the repository and checks that 5 lookups make exactly 1 `findById` call and produce 4 Caffeine cache hits (`recordStats`). Manually: run with `--logging.level.org.hibernate.SQL=debug` and call `GET /api/products/1` twice; only the first call logs a SELECT.
+  - Alternative: Hibernate's second-level cache. It caches entities, is harder to reason about and must be configured per entity. For multiple instances, a shared Redis cache would replace Caffeine (an optional extra).
+- **Writes are ADMIN-only.** Products are a shared catalog, so there's no owner. Any logged-in user can browse, and a USER gets 403 on POST, PUT or DELETE. `@Version` turns concurrent admin edits into 409.
+- **Seeding:** `ProductSeeder` inserts 100 products on startup, generated from a fixed `Random(42)` seed so the data is the same every run, and skips seeding if products already exist.
+- **Indexes:** on `price` (range filter and sort) and `category`. Because the category match is case-insensitive (`lower(category)`), a plain index on `category` can't serve it; a production database would use a functional index on `lower(category)` created by a migration.
 
 ## Q5: Order Service
 

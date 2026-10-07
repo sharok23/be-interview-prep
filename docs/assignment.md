@@ -40,7 +40,7 @@ Each question is one branch, one PR and one merge, in order from Q1 to Q5.
 
 ## Shared conventions
 
-- **Package:** `com.mock.api.<feature>`, with a model/entity, request and response records, repository, service and controller.
+- **Packages (by layer, under `com.mock.api`):** `contract` (request/response records, `ApiError`), `model` (JPA entities), `enums`, `repository`, `service`, `controller`, `exception` (exceptions and `GlobalExceptionHandler`).
 - **Errors (added in Q1, reused by later questions):** every error uses one JSON shape, `ApiError`: `status`, `error`, `message`, `path`, `timestamp` and, for invalid input, `fieldErrors`. `GlobalExceptionHandler` (`@RestControllerAdvice`) maps the cases:
   - 400: Bean Validation failures, invalid enum or date values in the body (each with a field message), malformed JSON, bad query or path parameters.
   - 404: `NotFoundException` and unknown URLs.

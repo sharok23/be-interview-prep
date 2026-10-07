@@ -85,7 +85,7 @@ class ShortUrlControllerTest {
     @Test
     void shortenReturns400ForInvalidUrlOrPastExpiry() throws Exception {
         for (String bad : new String[] {"not a url", "ftp://example.com/file", "http://", "http://.", "http://a..b",
-                "javascript:alert(1)", "https://exa mple.com"}) {
+                "javascript:alert(1)", "https://exa mple.com", "http://example.com:99999/"}) {
             shorten(bad, null)
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.fieldErrors.url").value("url must be a valid http or https URL"));

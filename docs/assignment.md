@@ -134,9 +134,10 @@ Build a service that turns long URLs into short links.
 - **Dedupe is safe under concurrency:** `dedupeKey` is the SHA-256 of `url|expiresAt`, with a unique constraint.
   - Two simultaneous requests for the same URL can both find no existing row. The database lets only one insert succeed. The loser catches `DataIntegrityViolationException`, re-reads by `dedupeKey` and returns the winner's link.
   - A test fires 50 simultaneous shorten requests and asserts exactly one link is created.
+  - `shorten` deliberately has no `@Transactional`. Each `saveAndFlush` runs in its own repository transaction, so a failed insert rolls back on its own and the retry can read the row the winner committed. Inside one service-level transaction, the first violation would mark the whole transaction rollback-only.
   - A plain unique constraint on `(original_url, expires_at)` would not work, because NULL expiries are never equal in SQL and the URL column is 2048 characters long.
 - **URL normalisation:** the scheme and host are lowercased (`HTTPS://Example.com/x` equals `https://example.com/x`). The path stays case-sensitive because servers treat it that way. `expiresAt` is truncated to milliseconds so a resubmitted request matches the stored value.
-- **URL validation:** only `http`/`https` URLs with a well-formed host (dot-separated labels, optional port) and RFC 3986 characters are accepted, up to 2048 characters. This rejects `ftp:`, `javascript:`, spaces and `http://.`.
+- **URL validation:** only `http`/`https` URLs with a well-formed host (dot-separated labels, optional port up to 65535) and RFC 3986 characters are accepted, up to 2048 characters. This rejects `ftp:`, `javascript:`, spaces and `http://.`.
 - **Visit counting:** a single atomic `UPDATE short_url SET visits = visits + 1 WHERE code = ?` per redirect. The database serialises the increments, so concurrent visits are never lost; a test fires 50 simultaneous visits.
   - Alternative: read the count, add one and save. Two visitors would read the same value and one increment would be lost.
 - **302, not 301:** browsers cache a 301 and skip the server on later visits, so those visits would never be counted.

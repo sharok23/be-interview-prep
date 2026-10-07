@@ -22,7 +22,8 @@ public record ShortenRequest(
         Instant expiresAt) {
 
     private static final String LABEL = "[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?";
-    private static final String URL_PATTERN = "(?i:https?)://" + LABEL + "(?:\\." + LABEL + ")*(?::\\d{1,5})?"
+    private static final String PORT = "(?::(?:6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|\\d{1,4}))?";
+    private static final String URL_PATTERN = "(?i:https?)://" + LABEL + "(?:\\." + LABEL + ")*" + PORT
             + "(?:[/?#][A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]*)?";
     private static final java.util.regex.Pattern SCHEME_AND_HOST =
             java.util.regex.Pattern.compile("^([A-Za-z]+://[^/?#:]+)(.*)$", java.util.regex.Pattern.DOTALL);

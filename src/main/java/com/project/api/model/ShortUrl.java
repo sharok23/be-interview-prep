@@ -1,6 +1,10 @@
 package com.project.api.model;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,6 +33,9 @@ public class ShortUrl {
 
     private Instant expiresAt;
 
+    @Column(nullable = false, unique = true, length = 64)
+    private String dedupeKey;
+
     @Column(nullable = false)
     private long visits;
 
@@ -39,7 +46,18 @@ public class ShortUrl {
         this.code = code;
         this.originalUrl = originalUrl;
         this.expiresAt = expiresAt;
+        this.dedupeKey = dedupeKey(originalUrl, expiresAt);
         this.createdAt = Instant.now();
+    }
+
+    public static String dedupeKey(String originalUrl, Instant expiresAt) {
+        String source = originalUrl + "|" + (expiresAt == null ? "none" : expiresAt.toString());
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     public boolean isExpired(Instant now) {

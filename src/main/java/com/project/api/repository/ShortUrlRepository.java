@@ -1,6 +1,5 @@
 package com.project.api.repository;
 
-import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,9 +13,7 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     Optional<ShortUrl> findByCode(String code);
 
-    boolean existsByCode(String code);
-
-    Optional<ShortUrl> findFirstByOriginalUrlAndExpiresAt(String originalUrl, Instant expiresAt);
+    Optional<ShortUrl> findByDedupeKey(String dedupeKey);
 
     @Modifying
     @Query("update ShortUrl s set s.visits = s.visits + 1 where s.code = :code")

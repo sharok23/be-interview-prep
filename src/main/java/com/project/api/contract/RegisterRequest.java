@@ -14,6 +14,7 @@ public record RegisterRequest(
 
         @NotBlank(message = "password is required")
         @Size(min = 8, max = 72, message = "password must be between {min} and {max} characters")
+        @MaxUtf8Bytes(value = 72, message = "password must be at most {value} bytes")
         String password) {
 
     public RegisterRequest {

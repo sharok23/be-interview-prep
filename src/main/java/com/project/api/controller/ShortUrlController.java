@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 
 import com.project.api.contract.ShortUrlResponse;
@@ -35,6 +39,10 @@ public class ShortUrlController {
     }
 
     @PostMapping("/api/urls")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Short link created"),
+            @ApiResponse(responseCode = "200", description = "Existing link for the same URL and expiry")
+    })
     public ResponseEntity<ShortUrlResponse> shorten(@Valid @RequestBody ShortenRequest request,
                                                     @AuthenticationPrincipal Jwt jwt) {
         String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
@@ -46,6 +54,8 @@ public class ShortUrlController {
     }
 
     @GetMapping("/r/{code}")
+    @ApiResponse(responseCode = "302", description = "Redirect to the original URL", content = @Content,
+            headers = @Header(name = "Location", description = "The original URL"))
     @SecurityRequirements
     public ResponseEntity<Void> redirect(@PathVariable String code) {
         return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, service.resolve(code)).build();

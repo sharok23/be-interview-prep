@@ -17,10 +17,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import com.project.api.contract.PageResponse;
 import com.project.api.contract.ProductRequest;
@@ -72,17 +74,21 @@ public class ProductController {
     }
 
     @PostMapping
+    @Operation(description = "Requires ADMIN role")
+    @ApiResponse(responseCode = "201", description = "Product created")
     public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductRequest request) {
         ProductResponse created = service.create(request);
         return ResponseEntity.created(URI.create("/api/products/" + created.id())).body(created);
     }
 
     @PutMapping("/{id}")
+    @Operation(description = "Requires ADMIN role")
     public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
         return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @Operation(description = "Requires ADMIN role")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         service.delete(id);

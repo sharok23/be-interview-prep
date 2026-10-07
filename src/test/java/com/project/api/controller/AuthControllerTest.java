@@ -124,6 +124,38 @@ class AuthControllerTest {
     }
 
     @Test
+    void registerReturns400ForPasswordOver72BytesEvenIfUnder72Characters() throws Exception {
+        register(uniqueUsername(), "é".repeat(40))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.password").value("password must be at most 72 bytes"));
+    }
+
+    @Test
+    void loginReturns400ForMissingFieldsOrMalformedJson() throws Exception {
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.username").value("username is required"))
+                .andExpect(jsonPath("$.fieldErrors.password").value("password is required"));
+
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("{oops"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void staleTokenIsIgnoredOnPublicEndpoints() throws Exception {
+        String username = uniqueUsername();
+        register(username, "Str0ng-pass");
+
+        mvc.perform(post("/api/auth/login").header(HttpHeaders.AUTHORIZATION, "Bearer expired-or-garbage")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\": \"%s\", \"password\": \"Str0ng-pass\"}".formatted(username)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/r/{code}", "nope1234").header(HttpHeaders.AUTHORIZATION, "Bearer expired-or-garbage"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void requestWithoutTokenReturns401AsJson() throws Exception {
         mvc.perform(get("/api/users/me"))
                 .andExpect(status().isUnauthorized())

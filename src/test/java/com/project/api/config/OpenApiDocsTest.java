@@ -40,7 +40,31 @@ class OpenApiDocsTest {
                 .andExpect(jsonPath("$.paths", hasKey("/api/products")))
                 .andExpect(jsonPath("$.paths", hasKey("/api/orders")))
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
-                .andExpect(jsonPath("$.paths['/api/auth/login'].post.security").isEmpty());
+                .andExpect(jsonPath("$.security[0]", hasKey("bearerAuth")))
+                .andExpect(jsonPath("$.paths['/api/auth/login'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/auth/register'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/r/{code}'].get.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/orders'].post.security").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/tasks'].get.security").doesNotExist());
+    }
+
+    @Test
+    void apiDocsShowTheRealSuccessAndErrorStatuses() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/tasks'].post.responses", hasKey("201")))
+                .andExpect(jsonPath("$.paths['/api/auth/register'].post.responses", hasKey("201")))
+                .andExpect(jsonPath("$.paths['/api/products'].post.responses", hasKey("201")))
+                .andExpect(jsonPath("$.paths['/api/urls'].post.responses", hasKey("201")))
+                .andExpect(jsonPath("$.paths['/api/urls'].post.responses", hasKey("200")))
+                .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("201")))
+                .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("200")))
+                .andExpect(jsonPath("$.paths['/r/{code}'].get.responses", hasKey("302")))
+                .andExpect(jsonPath("$.paths['/api/tasks/{id}'].get.responses", hasKey("404")))
+                .andExpect(jsonPath("$.paths['/api/tasks'].post.responses", hasKey("400")))
+                .andExpect(jsonPath("$.paths['/api/orders'].post.responses", hasKey("409")))
+                .andExpect(jsonPath("$.paths['/api/tasks/{id}'].get.responses['404'].content['*/*'].schema.$ref")
+                        .value(containsString("ApiError")))
+                .andExpect(jsonPath("$.paths['/api/products'].post.description").value("Requires ADMIN role"));
     }
 
     @Test

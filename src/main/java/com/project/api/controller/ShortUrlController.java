@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+
 import com.project.api.contract.ShortUrlResponse;
 import com.project.api.contract.ShortenRequest;
 import com.project.api.contract.UrlStatsResponse;
@@ -44,6 +46,7 @@ public class ShortUrlController {
     }
 
     @GetMapping("/r/{code}")
+    @SecurityRequirements
     public ResponseEntity<Void> redirect(@PathVariable String code) {
         return ResponseEntity.status(HttpStatus.FOUND).header(HttpHeaders.LOCATION, service.resolve(code)).build();
     }

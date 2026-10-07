@@ -17,6 +17,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import com.project.api.contract.PageResponse;
 import com.project.api.contract.ProductRequest;
 import com.project.api.contract.ProductResponse;
@@ -41,6 +46,9 @@ public class ProductController {
     }
 
     @GetMapping
+    @Parameter(name = "sort", in = ParameterIn.QUERY,
+            description = "field[,asc|desc]; repeat for several fields, e.g. sort=category&sort=price,desc",
+            array = @ArraySchema(schema = @Schema(type = "string")))
     public PageResponse<ProductResponse> search(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "minPrice must be 0 or more")

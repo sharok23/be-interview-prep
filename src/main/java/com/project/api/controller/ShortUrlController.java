@@ -5,6 +5,8 @@ import java.net.URI;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.project.api.contract.ShortUrlResponse;
 import com.project.api.contract.ShortenRequest;
 import com.project.api.contract.UrlStatsResponse;
+import com.project.api.model.CurrentUser;
 import com.project.api.service.ShortUrlService;
 import com.project.api.service.ShortUrlService.ShortenResult;
 
@@ -30,9 +33,10 @@ public class ShortUrlController {
     }
 
     @PostMapping("/api/urls")
-    public ResponseEntity<ShortUrlResponse> shorten(@Valid @RequestBody ShortenRequest request) {
+    public ResponseEntity<ShortUrlResponse> shorten(@Valid @RequestBody ShortenRequest request,
+                                                    @AuthenticationPrincipal Jwt jwt) {
         String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
-        ShortenResult result = service.shorten(request, baseUrl);
+        ShortenResult result = service.shorten(request, baseUrl, CurrentUser.from(jwt));
         if (!result.created()) {
             return ResponseEntity.ok(result.response());
         }
@@ -45,7 +49,7 @@ public class ShortUrlController {
     }
 
     @GetMapping("/api/urls/{code}/stats")
-    public UrlStatsResponse stats(@PathVariable String code) {
-        return service.stats(code);
+    public UrlStatsResponse stats(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+        return service.stats(code, CurrentUser.from(jwt));
     }
 }

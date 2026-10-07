@@ -12,24 +12,34 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
+import com.project.api.enums.Role;
 import com.project.api.model.ShortUrl;
 import com.project.api.repository.ShortUrlRepository;
+import com.project.api.support.TestUsers;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 class ShortUrlControllerTest {
 
     @Autowired
+    private TestUsers testUsers;
+
+    private TestUsers.Account account;
     private MockMvc mvc;
+
+    @BeforeEach
+    void signIn() {
+        account = testUsers.create(Role.USER);
+        mvc = testUsers.mockMvcAs(account);
+    }
 
     @Autowired
     private ShortUrlRepository repository;
@@ -130,7 +140,7 @@ class ShortUrlControllerTest {
     @Test
     void expiredCodeReturns410AndIsNotCounted() throws Exception {
         String code = "exp" + UUID.randomUUID().toString().substring(0, 5);
-        repository.save(new ShortUrl(code, uniqueUrl(), Instant.now().minus(1, ChronoUnit.MINUTES)));
+        repository.save(new ShortUrl(account.user(), code, uniqueUrl(), Instant.now().minus(1, ChronoUnit.MINUTES)));
 
         mvc.perform(get("/r/{code}", code))
                 .andExpect(status().isGone())

@@ -48,6 +48,7 @@ Each question is one branch, one PR and one merge, in order from Q1 to Q5.
   - 409: a concurrent update of the same row (optimistic locking).
   - 500: anything else, logged, with no details leaked.
 - **Persistence:** an H2 in-memory database through Spring Data JPA. `ddl-auto=create-drop` and `open-in-view=false`.
+- **Security (from Q3):** every `/api/**` endpoint except register and login needs a JWT. Data belongs to its owner, and ADMIN sees everything.
 
 ---
 
@@ -83,6 +84,8 @@ Build a REST API to create, view, update, delete and filter tasks.
 Request body: `{"title": "...", "description": "...", "status": "TODO|IN_PROGRESS|DONE", "dueDate": "2026-12-31"}`.
 
 **Flow:** `TaskController` (validates with `@Valid`) → `TaskService` (`@Transactional`, rules and defaults) → `TaskRepository` (Spring Data JPA) → H2 `task` table. The `Task` entity is never returned directly; `TaskResponse.from` maps it.
+
+**Since Q3:** every task endpoint needs a Bearer token, and each task belongs to the user who created it (see Q3).
 
 **Decisions**
 - **Status:** `TaskStatus` is an enum stored as text (`EnumType.STRING`), so reordering the enum can't corrupt existing rows. It is optional. Create defaults to `TODO`, and PUT keeps the current status when it is omitted.
@@ -125,6 +128,8 @@ Build a service that turns long URLs into short links.
 
 **Flow:** `ShortUrlController` → `ShortUrlService` → `ShortUrlRepository` → H2 `short_url` table. `ShortCodeGenerator` produces the codes.
 
+**Since Q3:** creating links and reading stats need a Bearer token, and links belong to their creator. The `/r/{code}` redirect stays public (see Q3).
+
 **Decisions**
 - **Codes:** 7 random Base62 characters (`[0-9A-Za-z]`, URL-safe) from `SecureRandom`. That gives 62^7 ≈ 3.5 trillion combinations, and a unique constraint on `code` guarantees uniqueness.
   - On the rare collision, the insert fails and is retried with a new code (up to 5 attempts).
@@ -158,23 +163,48 @@ Secure an API so that only logged-in users can use it, and some endpoints are ad
 - A test proves that a USER cannot access the admin endpoint.
 - No secrets are hard-coded in the source.
 
-**Planned endpoints**
+**Endpoints**
 
 | Method | Path | Access | Success | Errors |
 |--------|------|--------|---------|--------|
-| POST | `/api/auth/register` | public | 201 | 400, 409 (username taken) |
-| POST | `/api/auth/login` | public | 200 `{token, expiresAt}` | 401 |
-| GET | `/api/users/me` | USER, ADMIN | 200 | 401 |
-| GET | `/api/admin/users` | ADMIN | 200 | 401, 403 |
+| POST | `/api/auth/register` `{username, password}` | public | 201 `{id, username, role, createdAt}` | 400, 409 (username taken) |
+| POST | `/api/auth/login` `{username, password}` | public | 200 `{accessToken, tokenType: "Bearer", expiresAt}` | 400, 401 |
+| GET | `/api/users/me` | USER, ADMIN | 200 own profile | 401 |
+| GET | `/api/admin/users` | ADMIN | 200 all users | 401, 403 |
+| all `/api/tasks/**`, `/api/urls/**` | | USER, ADMIN | as in Q1/Q2 | 401 |
+| GET | `/r/{code}` | public | 302 | 404, 410 |
 
-**Planned decisions**
-- **Passwords:** hashed with BCrypt.
-- **Tokens:** stateless JWT signed with HS256 using `spring-boot-starter-oauth2-resource-server` (Nimbus). Tokens expire after 15 minutes, and the session policy is `STATELESS`.
-  - Alternative: server sessions, which the spec rules out.
-- **Secret:** the signing key comes from the `JWT_SECRET` environment variable. Tests supply their own key.
-- **Errors:** a JSON `AuthenticationEntryPoint` returns 401 and a JSON `AccessDeniedHandler` returns 403, both in the shared `ErrorResponse` shape.
-- **Roles:** new users get `USER`. The ADMIN account comes from configuration rather than self-registration.
-- **Open point:** whether Q1 and Q2 endpoints also require a login. This will be decided when Q3 starts.
+**Flow:**
+1. **Login:** `AuthController` → `AuthService` checks the password against the BCrypt hash, then `TokenService` signs a JWT.
+2. **Every later request:** Spring Security's `BearerTokenAuthenticationFilter` reads `Authorization: Bearer …`, and `JwtDecoder` verifies the signature and expiry.
+3. **Roles:** the `roles` claim becomes `ROLE_USER` or `ROLE_ADMIN`, and URL rules in `SecurityConfig` decide access.
+4. **Controllers:** they receive the `Jwt` and turn it into a `CurrentUser`.
+
+**Decisions**
+- **Stateless JWT** (`SessionCreationPolicy.STATELESS`, CSRF off since no cookies are used). This works for web and mobile clients.
+  - Alternatives: server sessions, which the spec rules out; opaque tokens, which need a token-store lookup on every request.
+- **Spring's OAuth2 resource server** (Nimbus, HS256) instead of a hand-written filter. Spring verifies the signature and expiry itself.
+  - The JWT carries `sub` (username), `roles`, `iat` and `exp`.
+- **Exactly 15 minutes:** `JwtTimestampValidator(Duration.ZERO)` removes Spring's default 60-second clock-skew allowance.
+- **Signing key without hard-coded secrets:** the key comes from `JWT_SECRET`, at least 32 bytes, otherwise startup fails.
+  - If it is unset (local runs, tests), a random key is generated with a warning. Tokens then don't survive a restart.
+  - The admin account is seeded only from the `ADMIN_USERNAME`/`ADMIN_PASSWORD` environment variables. Registration always gives `USER`.
+- **Passwords:**
+  - BCrypt hashes, never returned in any response.
+  - Validated to 8–72 characters *and* at most 72 bytes, because BCrypt rejects longer input.
+  - Login answers "Invalid username or password" for both unknown users and wrong passwords. For unknown users it still runs a BCrypt match against a dummy hash, so the response time doesn't reveal which usernames exist.
+- **Usernames:** lowercased, so `Alice` and `alice` are the same account. Duplicates return 409.
+  - Like Q2, `register` relies on the unique constraint (`saveAndFlush`, catch the violation) so two simultaneous registrations can't both succeed.
+- **JSON 401/403:** `SecurityErrorHandler` implements `AuthenticationEntryPoint` (401) and `AccessDeniedHandler` (403) and writes the shared `ApiError`. Errors from the security filters never reach `@RestControllerAdvice`, so they need their own handler.
+- **Stale tokens on public endpoints:** a custom `BearerTokenResolver` ignores the `Authorization` header on register, login and `/r/**`. Otherwise a client that keeps sending an expired token would get 401 and could never log in again.
+- **Tasks and short URLs belong to users (all features are connected):**
+  - `Task` and `ShortUrl` have an `owner` (`@ManyToOne`, lazy). Users only see and change their own data; anyone else's returns 404, not 403, so ids of other users' data aren't confirmed.
+  - ADMIN sees everything. `TaskResponse` includes `owner`.
+  - The Q2 dedupe key includes the owner, so two users shortening the same URL get separate links and stats.
+  - `/r/{code}` stays public, because people clicking a short link have no token.
+  - `@EntityGraph(attributePaths = "owner")` loads the owner in the same query, which avoids N+1 selects when listing.
+- **A token for a deleted user** returns 401 ("Account no longer exists") instead of a 500.
+- **Known limitation:** a token can't be revoked before it expires. The optional refresh-token and logout work would add that.
 
 ## Q4: Product Catalog
 

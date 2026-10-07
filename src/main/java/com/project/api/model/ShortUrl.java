@@ -8,9 +8,12 @@ import java.util.HexFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 public class ShortUrl {
@@ -39,19 +42,24 @@ public class ShortUrl {
     @Column(nullable = false)
     private long visits;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false, updatable = false)
+    private User owner;
+
     protected ShortUrl() {
     }
 
-    public ShortUrl(String code, String originalUrl, Instant expiresAt) {
+    public ShortUrl(User owner, String code, String originalUrl, Instant expiresAt) {
+        this.owner = owner;
         this.code = code;
         this.originalUrl = originalUrl;
         this.expiresAt = expiresAt;
-        this.dedupeKey = dedupeKey(originalUrl, expiresAt);
+        this.dedupeKey = dedupeKey(owner.getUsername(), originalUrl, expiresAt);
         this.createdAt = Instant.now();
     }
 
-    public static String dedupeKey(String originalUrl, Instant expiresAt) {
-        String source = originalUrl + "|" + (expiresAt == null ? "none" : expiresAt.toString());
+    public static String dedupeKey(String ownerUsername, String originalUrl, Instant expiresAt) {
+        String source = ownerUsername + "|" + originalUrl + "|" + (expiresAt == null ? "none" : expiresAt.toString());
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
@@ -86,5 +94,9 @@ public class ShortUrl {
 
     public long getVisits() {
         return visits;
+    }
+
+    public User getOwner() {
+        return owner;
     }
 }

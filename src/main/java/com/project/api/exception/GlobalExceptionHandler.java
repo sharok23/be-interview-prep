@@ -64,6 +64,16 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
     }
 
+    @ExceptionHandler(ConflictException.class)
+    ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest req) {
+        return respond(HttpStatus.CONFLICT, ex.getMessage(), req, null);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    ResponseEntity<ApiError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest req) {
+        return respond(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, null);
+    }
+
     @ExceptionHandler(GoneException.class)
     ResponseEntity<ApiError> handleGone(GoneException ex, HttpServletRequest req) {
         return respond(HttpStatus.GONE, ex.getMessage(), req, null);

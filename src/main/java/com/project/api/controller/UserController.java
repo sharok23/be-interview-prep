@@ -7,6 +7,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+
 import com.project.api.contract.UserResponse;
 import com.project.api.service.UserService;
 
@@ -25,6 +27,7 @@ public class UserController {
     }
 
     @GetMapping("/api/admin/users")
+    @Operation(description = "Requires ADMIN role")
     public List<UserResponse> listUsers() {
         return userService.listAll();
     }

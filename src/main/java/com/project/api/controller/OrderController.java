@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
 import com.project.api.contract.OrderRequest;
 import com.project.api.contract.OrderResponse;
 import com.project.api.model.CurrentUser;
@@ -32,6 +35,10 @@ public class OrderController {
     }
 
     @PostMapping
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Order placed"),
+            @ApiResponse(responseCode = "200", description = "Retry with the same Idempotency-Key: the original order")
+    })
     public ResponseEntity<OrderResponse> place(
             @RequestHeader(name = OrderService.IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody OrderRequest request,

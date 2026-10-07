@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+
 import com.project.api.contract.TaskRequest;
 import com.project.api.contract.TaskResponse;
 import com.project.api.enums.TaskStatus;
@@ -37,6 +39,7 @@ public class TaskController {
     }
 
     @PostMapping
+    @ApiResponse(responseCode = "201", description = "Task created")
     public ResponseEntity<TaskResponse> create(@Valid @RequestBody TaskRequest request,
                                                @AuthenticationPrincipal Jwt jwt) {
         TaskResponse created = service.create(request, CurrentUser.from(jwt));

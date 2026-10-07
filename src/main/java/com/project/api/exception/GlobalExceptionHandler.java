@@ -16,6 +16,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -31,6 +32,7 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors()
@@ -39,6 +41,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
         if (ex.getCause() instanceof MismatchedInputException mismatch && !mismatch.getPath().isEmpty()) {
             String field = mismatch.getPath().stream()
@@ -51,21 +54,25 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
         return respond(HttpStatus.BAD_REQUEST, invalidValueMessage(ex.getName(), ex.getRequiredType()), req, null);
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
     ResponseEntity<ApiError> handleConcurrentModification(HttpServletRequest req) {
         return respond(HttpStatus.CONFLICT, "The resource was changed by another request, retry", req, null);
     }
 
     @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
     ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest req) {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ApiError> handleParameterValidation(HandlerMethodValidationException ex, HttpServletRequest req) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getParameterValidationResults().forEach(result -> result.getResolvableErrors().forEach(error ->
@@ -74,26 +81,31 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BadRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     ResponseEntity<ApiError> handleBadRequest(BadRequestException ex, HttpServletRequest req) {
         return respond(HttpStatus.BAD_REQUEST, "Validation failed", req, Map.of(ex.getField(), ex.getMessage()));
     }
 
     @ExceptionHandler(ConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
     ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest req) {
         return respond(HttpStatus.CONFLICT, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
     ResponseEntity<ApiError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest req) {
         return respond(HttpStatus.UNAUTHORIZED, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(GoneException.class)
+    @ResponseStatus(HttpStatus.GONE)
     ResponseEntity<ApiError> handleGone(GoneException ex, HttpServletRequest req) {
         return respond(HttpStatus.GONE, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest req) {
         if (ex instanceof ErrorResponse springError) {
             HttpStatusCode status = springError.getStatusCode();

@@ -58,6 +58,19 @@ class ShortUrlControllerTest {
     }
 
     @Test
+    void schemeAndHostAreCaseInsensitiveButPathIsNot() throws Exception {
+        String path = "/Docs/" + UUID.randomUUID();
+        String first = codeOf(shorten("https://example.com" + path, null).andExpect(status().isCreated()));
+
+        shorten("HTTPS://Example.COM" + path, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(first));
+
+        shorten("https://example.com" + path.toLowerCase(), null)
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void sameUrlWithADifferentExpiryGetsANewCode() throws Exception {
         String url = uniqueUrl();
         String withoutExpiry = codeOf(shorten(url, null));
@@ -71,7 +84,8 @@ class ShortUrlControllerTest {
 
     @Test
     void shortenReturns400ForInvalidUrlOrPastExpiry() throws Exception {
-        for (String bad : new String[] {"not a url", "ftp://example.com/file", "http://", "javascript:alert(1)"}) {
+        for (String bad : new String[] {"not a url", "ftp://example.com/file", "http://", "http://.", "http://a..b",
+                "javascript:alert(1)", "https://exa mple.com"}) {
             shorten(bad, null)
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.fieldErrors.url").value("url must be a valid http or https URL"));

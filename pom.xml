@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.mock</groupId>
+    <groupId>com.project</groupId>
     <artifactId>be-interview-prep</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>be-interview-prep</name>

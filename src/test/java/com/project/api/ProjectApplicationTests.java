@@ -1,10 +1,10 @@
-package com.mock.api;
+package com.project.api;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class MockApiApplicationTests {
+class ProjectApplicationTests {
 
     @Test
     void contextLoads() {

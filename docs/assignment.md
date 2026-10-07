@@ -329,7 +329,10 @@ Response: `{id, status, items: [{productId, productName, quantity, unitPrice}], 
 
 ## If we finish early (optional)
 
-- Q1: interactive API documentation (for example springdoc Swagger UI).
+- Q1: interactive API documentation. **Done:** springdoc Swagger UI at `/swagger-ui.html`, with `/` redirecting to it.
+  - A global bearer-JWT security scheme gives an **Authorize** button; login, register and the `/r/{code}` redirect are marked public.
+  - The docs are generated from the controllers and validation annotations, so they can't drift from the code.
+  - The UI and spec need no login: they fall under the security config's `anyRequest().permitAll()`, outside `/api/**`. `OpenApiDocsTest` checks the spec and the redirect.
 - Q2: let users choose their own custom short code.
 - Q3: let users stay logged in beyond 15 minutes without re-entering their password (refresh token), plus a logout that ends that.
 - Q4: make the fast lookups work across several app instances (for example Redis).

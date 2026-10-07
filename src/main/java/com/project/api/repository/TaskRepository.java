@@ -1,12 +1,12 @@
-package com.mock.api.repository;
+package com.project.api.repository;
 
 import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.mock.api.enums.TaskStatus;
-import com.mock.api.model.Task;
+import com.project.api.enums.TaskStatus;
+import com.project.api.model.Task;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 

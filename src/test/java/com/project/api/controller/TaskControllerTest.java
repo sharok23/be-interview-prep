@@ -1,4 +1,4 @@
-package com.mock.api.controller;
+package com.project.api.controller;
 
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;

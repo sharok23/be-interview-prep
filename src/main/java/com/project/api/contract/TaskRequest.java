@@ -1,9 +1,9 @@
-package com.mock.api.contract;
+package com.project.api.contract;
 
 import java.time.LocalDate;
 
-import com.mock.api.enums.TaskStatus;
-import com.mock.api.model.Task;
+import com.project.api.enums.TaskStatus;
+import com.project.api.model.Task;
 
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;

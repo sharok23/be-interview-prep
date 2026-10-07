@@ -1,4 +1,4 @@
-package com.mock.api.enums;
+package com.project.api.enums;
 
 public enum TaskStatus {
     TODO,

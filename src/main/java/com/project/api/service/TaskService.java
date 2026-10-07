@@ -1,4 +1,4 @@
-package com.mock.api.service;
+package com.project.api.service;
 
 import java.util.List;
 
@@ -6,12 +6,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mock.api.contract.TaskRequest;
-import com.mock.api.contract.TaskResponse;
-import com.mock.api.enums.TaskStatus;
-import com.mock.api.exception.NotFoundException;
-import com.mock.api.model.Task;
-import com.mock.api.repository.TaskRepository;
+import com.project.api.contract.TaskRequest;
+import com.project.api.contract.TaskResponse;
+import com.project.api.enums.TaskStatus;
+import com.project.api.exception.NotFoundException;
+import com.project.api.model.Task;
+import com.project.api.repository.TaskRepository;
 
 @Service
 public class TaskService {

@@ -1,10 +1,10 @@
-package com.mock.api.contract;
+package com.project.api.contract;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
-import com.mock.api.enums.TaskStatus;
-import com.mock.api.model.Task;
+import com.project.api.enums.TaskStatus;
+import com.project.api.model.Task;
 
 public record TaskResponse(
         Long id,

@@ -1,9 +1,9 @@
-package com.mock.api.model;
+package com.project.api.model;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
-import com.mock.api.enums.TaskStatus;
+import com.project.api.enums.TaskStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

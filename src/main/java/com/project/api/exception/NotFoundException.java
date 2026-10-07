@@ -1,4 +1,4 @@
-package com.mock.api.exception;
+package com.project.api.exception;
 
 public class NotFoundException extends RuntimeException {
 

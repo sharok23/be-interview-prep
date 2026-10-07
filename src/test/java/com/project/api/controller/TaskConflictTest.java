@@ -1,4 +1,4 @@
-package com.mock.api.controller;
+package com.project.api.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -15,8 +15,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.mock.api.model.Task;
-import com.mock.api.repository.TaskRepository;
+import com.project.api.model.Task;
+import com.project.api.repository.TaskRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc

@@ -1,4 +1,4 @@
-package com.mock.api.contract;
+package com.project.api.contract;
 
 import java.time.Instant;
 import java.util.Map;

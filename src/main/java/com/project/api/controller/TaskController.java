@@ -1,4 +1,4 @@
-package com.mock.api.controller;
+package com.project.api.controller;
 
 import java.net.URI;
 import java.util.List;
@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.mock.api.contract.TaskRequest;
-import com.mock.api.contract.TaskResponse;
-import com.mock.api.enums.TaskStatus;
-import com.mock.api.service.TaskService;
+import com.project.api.contract.TaskRequest;
+import com.project.api.contract.TaskResponse;
+import com.project.api.enums.TaskStatus;
+import com.project.api.service.TaskService;
 
 import jakarta.validation.Valid;
 

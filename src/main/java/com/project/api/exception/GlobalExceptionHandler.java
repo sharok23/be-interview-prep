@@ -1,4 +1,4 @@
-package com.mock.api.exception;
+package com.project.api.exception;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import com.mock.api.contract.ApiError;
+import com.project.api.contract.ApiError;
 
 import jakarta.servlet.http.HttpServletRequest;
 

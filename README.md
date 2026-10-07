@@ -11,10 +11,21 @@ Five Spring Boot features built for the backend interview prep assignment. Each 
 ```
 
 - The app starts on `http://localhost:8080`.
-- From Q3 onwards, set the JWT signing key first. It must be at least 32 bytes:
+- Optional environment variables (nothing secret is stored in the code):
+
+  | Variable | Purpose |
+  |---|---|
+  | `JWT_SECRET` | JWT signing key, at least 32 bytes. If unset, a random key is used and tokens don't survive a restart. |
+  | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Creates an ADMIN account on startup. Registration always creates USER accounts. |
+
+- Every `/api/**` endpoint except register and login needs a token:
 
   ```bash
-  export JWT_SECRET=<random-32+-byte-string>
+  curl -X POST localhost:8080/api/auth/register -H "Content-Type: application/json" \
+    -d '{"username":"alice","password":"Str0ng-pass"}'
+  curl -X POST localhost:8080/api/auth/login -H "Content-Type: application/json" \
+    -d '{"username":"alice","password":"Str0ng-pass"}'
+  curl localhost:8080/api/users/me -H "Authorization: Bearer <accessToken from login>"
   ```
 
 ## Test

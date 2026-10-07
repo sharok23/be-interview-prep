@@ -1,4 +1,4 @@
-package com.mock.api.common.exception;
+package com.mock.api.contract;
 
 import java.time.Instant;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.mock.api.common.exception;
+package com.mock.api.exception;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.mock.api.contract.ApiError;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -65,7 +66,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest req) {
-        // Spring's own web exceptions (unknown URL, wrong method, wrong media type) carry their status.
         if (ex instanceof ErrorResponse springError) {
             HttpStatusCode status = springError.getStatusCode();
             return respond(HttpStatus.valueOf(status.value()), springError.getBody().getDetail(), req, null);

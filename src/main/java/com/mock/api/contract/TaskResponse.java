@@ -1,7 +1,10 @@
-package com.mock.api.task;
+package com.mock.api.contract;
 
 import java.time.Instant;
 import java.time.LocalDate;
+
+import com.mock.api.enums.TaskStatus;
+import com.mock.api.model.Task;
 
 public record TaskResponse(
         Long id,
@@ -11,7 +14,7 @@ public record TaskResponse(
         LocalDate dueDate,
         Instant createdAt) {
 
-    static TaskResponse from(Task task) {
+    public static TaskResponse from(Task task) {
         return new TaskResponse(task.getId(), task.getTitle(), task.getDescription(), task.getStatus(),
                 task.getDueDate(), task.getCreatedAt());
     }

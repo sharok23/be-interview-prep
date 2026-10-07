@@ -1,7 +1,9 @@
-package com.mock.api.task;
+package com.mock.api.model;
 
 import java.time.Instant;
 import java.time.LocalDate;
+
+import com.mock.api.enums.TaskStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,17 +17,19 @@ import jakarta.persistence.Version;
 @Entity
 public class Task {
 
+    public static final int TITLE_MAX = 100;
+    public static final int DESCRIPTION_MAX = 1000;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = TaskRequest.TITLE_MAX)
+    @Column(nullable = false, length = TITLE_MAX)
     private String title;
 
-    @Column(length = TaskRequest.DESCRIPTION_MAX)
+    @Column(length = DESCRIPTION_MAX)
     private String description;
 
-    // Stored as text so reordering the enum can't silently change existing rows.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TaskStatus status;
@@ -35,14 +39,13 @@ public class Task {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    // Optimistic locking: a concurrent update or delete of the same task fails with 409 instead of lost writes.
     @Version
     private Long version;
 
     protected Task() {
     }
 
-    Task(String title, String description, TaskStatus status, LocalDate dueDate) {
+    public Task(String title, String description, TaskStatus status, LocalDate dueDate) {
         this.title = title;
         this.description = description;
         this.status = status;
@@ -50,7 +53,7 @@ public class Task {
         this.createdAt = Instant.now();
     }
 
-    void update(String title, String description, TaskStatus status, LocalDate dueDate) {
+    public void update(String title, String description, TaskStatus status, LocalDate dueDate) {
         this.title = title;
         this.description = description;
         this.status = status;

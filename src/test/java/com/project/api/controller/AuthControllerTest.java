@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +65,7 @@ class AuthControllerTest {
 
         register(username, "Str0ng-pass")
                 .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/users/me"))
                 .andExpect(jsonPath("$.username").value(username))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.password").doesNotExist())

@@ -1,10 +1,11 @@
 package com.project.api.controller;
 
-import org.springframework.http.HttpStatus;
+import java.net.URI;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.api.contract.LoginRequest;
@@ -26,9 +27,8 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.created(URI.create("/api/users/me")).body(authService.register(request));
     }
 
     @PostMapping("/login")

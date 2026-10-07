@@ -2,6 +2,7 @@ package com.project.api.controller;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +22,17 @@ import com.project.api.contract.ProductRequest;
 import com.project.api.contract.ProductResponse;
 import com.project.api.service.ProductService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
+
+    private static final int MAX_PAGE = Integer.MAX_VALUE / ProductService.MAX_PAGE_SIZE;
 
     private final ProductService service;
 
@@ -44,10 +49,13 @@ public class ProductController {
             BigDecimal maxPrice,
             @RequestParam(required = false) Boolean inStock,
             @RequestParam(name = "q", required = false) String nameQuery,
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be 0 or more") int page,
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be 0 or more")
+            @Max(value = MAX_PAGE, message = "page must be at most " + MAX_PAGE) int page,
             @RequestParam(defaultValue = "20") @Min(value = 1, message = "size must be 1 or more") int size,
-            @RequestParam(required = false) String sort) {
-        return service.search(category, minPrice, maxPrice, inStock, nameQuery, page, size, sort);
+            HttpServletRequest request) {
+        String[] sort = request.getParameterValues("sort");
+        List<String> sortParams = sort == null ? List.of() : List.of(sort);
+        return service.search(category, minPrice, maxPrice, inStock, nameQuery, page, size, sortParams);
     }
 
     @GetMapping("/{id}")

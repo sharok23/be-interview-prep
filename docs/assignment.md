@@ -278,24 +278,52 @@ Build an order API that stays correct under heavy, simultaneous use.
 - An automated test fires 50 simultaneous orders for a product with stock 10. Exactly 10 succeed, and the stock ends at 0.
 - Retrying the same request creates only one order.
 
-**Planned endpoints**
+**Endpoints** (all need a Bearer token)
 
 | Method | Path | Success | Errors |
 |--------|------|---------|--------|
-| POST | `/api/orders` + header `Idempotency-Key` | 201 (a retry returns 200 with the same order) | 400, 404 product, 409 insufficient stock |
-| GET | `/api/orders/{id}` | 200 | 404 |
-| POST | `/api/orders/{id}/cancel` | 200 | 404, 409 (already cancelled) |
+| POST | `/api/orders` + header `Idempotency-Key` + `{items: [{productId, quantity}]}` | 201 new order; 200 retry returning the original order | 400 (missing/invalid key or body), 404 product, 409 insufficient stock or key reused for a different order |
+| GET | `/api/orders/{id}` | 200 | 400, 404 |
+| POST | `/api/orders/{id}/cancel` | 200 (also when already cancelled) | 400, 404 |
 
-**Planned decisions**
-- **Reserving stock:** one `@Transactional` method runs a conditional atomic update for each item:
-  `UPDATE product SET stock = stock - :qty WHERE id = :id AND stock >= :qty`.
-  - If an update affects 0 rows, the method throws a `ConflictException` and the whole transaction rolls back, which gives all-or-nothing.
-  - Items are processed in product-id order to avoid deadlocks.
-  - Alternatives: pessimistic `SELECT … FOR UPDATE`, or optimistic `@Version` with retries. Both are candidates for the optional second approach.
-- **Retries:** the client sends an `Idempotency-Key` header, which has a unique constraint on the orders table. A retry with the same key returns the existing order. If two copies of a request race, the loser catches the constraint violation and returns the winner's order.
-- **Cancelling:** sets the status to `CANCELLED` and adds the stock back in the same transaction.
-- **Cache interaction:** stock changes evict the Q4 product cache, so product lookups never show stale stock.
-- **Concurrency test:** 50 threads start together on a `CountDownLatch`. The test asserts 10 orders return 201, 40 return 409, and the final stock is 0.
+Response: `{id, status, items: [{productId, productName, quantity, unitPrice}], total, createdAt, owner}`.
+
+**Flow:**
+1. `OrderController` → `OrderService.place`.
+2. **Replay check:** an existing order for (user, key) is returned as-is.
+3. **One transaction** (`TransactionTemplate`): for each product in id order, run `reserveStock`; snapshot name and price into `OrderItem`s; `saveAndFlush` the `PurchaseOrder`.
+4. **After commit:** the product cache entries are evicted.
+
+**Decisions**
+- **No overselling: a conditional atomic update per item.**
+  `UPDATE product SET stock = stock - :q, version = version + 1 WHERE id = :id AND stock >= :q`.
+  - The database checks and decrements in one statement while holding the row lock, so two buyers can never both take the last unit, and stock can never go negative.
+  - 0 rows updated means the product is missing (404) or short of stock (409 with "requested X, available Y").
+  - Rejected alternatives:
+    - **Read stock, check, save:** a classic race that oversells.
+    - **`SELECT … FOR UPDATE` (pessimistic lock):** correct, but two round trips while holding the lock.
+    - **`@Version` optimistic locking:** under a burst for one hot product most attempts fail and must retry. Both remain candidates for the optional "second approach".
+- **All-or-nothing:** every reservation and the order insert run in one transaction. Any failure (one item short, unknown product) throws, and the rollback undoes the reservations already made for the other items.
+  - Items are processed in product-id order (duplicate lines are merged), so two orders for the same products always lock rows in the same order and can't deadlock.
+- **Retries via a required `Idempotency-Key` header** (the client sends a UUID per logical order and resends it on retry):
+  - A unique constraint on `(owner_id, idempotency_key)` lets the database guarantee one order per key; keys are scoped per user.
+  - The order stores a SHA-256 of the merged items. The same key with the same items returns **200 with the original order**; the same key with different items returns **409**, so a reused key can't silently return the wrong order.
+  - A missing, blank or over-100-character key returns 400.
+  - **Concurrent copies of one request:** each copy runs the transaction. Whichever copy commits first wins. A loser fails either on the unique key (`DataIntegrityViolationException`) or, when stock is tight, with "insufficient stock" because the winner took the last units. In both cases it re-runs the replay check and returns the winner's order. `OrderConcurrencyTest` covers both cases.
+  - `place` has no `@Transactional` itself, for the same reason as Q2: the losing transaction must roll back before the replay check can read the winner's committed order.
+- **Cancel is idempotent:** `UPDATE orders SET status = CANCELLED WHERE id = ? AND status = PLACED`.
+  - Stock is returned only when exactly one row changed, so repeated or simultaneous cancels return stock once.
+  - An already-cancelled order returns 200 unchanged.
+- **Cache interaction with Q4:** every stock change evicts that product's cache entry. The transaction-aware cache applies the evict after commit, so product lookups never show stale stock.
+- **The bulk updates bump `@Version`**, so an admin `PUT` that overlaps an order fails with 409 instead of overwriting the reserved stock.
+- **Ownership** is the same as Q3: other users' orders return 404, and ADMIN sees all.
+- `unitPrice` and `productName` are snapshotted on the order, so later product edits don't change past orders.
+- The entity is `PurchaseOrder` because `ORDER` is a reserved SQL/JPQL word; the table is `orders`.
+- **Tests (`OrderConcurrencyTest`):**
+  - 50 threads released together by a `CountDownLatch` order 1 unit of a product with stock 10: exactly 10 succeed, 40 get 409, and the stock ends at 0.
+  - 20 simultaneous copies of one key create exactly one order.
+  - 10 copies racing for the last 2 units all receive the same order.
+  - 20 simultaneous cancels return the stock once.
 
 ---
 

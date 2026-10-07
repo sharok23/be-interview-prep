@@ -149,6 +149,45 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.fieldErrors.minPrice").value("minPrice must not be greater than maxPrice"));
         mvc.perform(get("/api/products").param("minPrice", "cheap").header(HttpHeaders.AUTHORIZATION, user))
                 .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/products").param("sort", ",").header(HttpHeaders.AUTHORIZATION, user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.sort").exists());
+        mvc.perform(get("/api/products").param("page", "2147483647").header(HttpHeaders.AUTHORIZATION, user))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.page").exists());
+    }
+
+    @Test
+    void sortsByMultipleFields() throws Exception {
+        String body = mvc.perform(get("/api/products").param("sort", "category").param("sort", "price,desc")
+                        .param("size", "100").header(HttpHeaders.AUTHORIZATION, user))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        List<String> categories = JsonPath.read(body, "$.content[*].category");
+        List<Number> prices = JsonPath.read(body, "$.content[*].price");
+        for (int i = 1; i < categories.size(); i++) {
+            int byCategory = categories.get(i - 1).compareTo(categories.get(i));
+            assertThat(byCategory).isLessThanOrEqualTo(0);
+            if (byCategory == 0) {
+                assertThat(prices.get(i).doubleValue()).isLessThanOrEqualTo(prices.get(i - 1).doubleValue());
+            }
+        }
+    }
+
+    @Test
+    void updateAndDeleteReturn404ForUnknownIdAnd400ForInvalidBody() throws Exception {
+        String valid = productJson("Desk", "Home", "10.00", 1);
+        mvc.perform(put("/api/products/{id}", 999_999).header(HttpHeaders.AUTHORIZATION, admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(valid))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/products/{id}", 999_999).header(HttpHeaders.AUTHORIZATION, admin))
+                .andExpect(status().isNotFound());
+
+        long id = createProduct("Desk", "Home", "120.00", 4);
+        mvc.perform(put("/api/products/{id}", id).header(HttpHeaders.AUTHORIZATION, admin)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\": \"Desk\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.price").value("price is required"));
     }
 
     @Test

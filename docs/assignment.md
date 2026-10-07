@@ -41,11 +41,12 @@ Each question is one branch, one PR and one merge, in order from Q1 to Q5.
 ## Shared conventions
 
 - **Package:** `com.mock.api.<feature>`, with a model/entity, request and response records, repository, service and controller.
-- **Errors (added in Q1, reused by later questions):** every error uses one JSON shape, `ErrorResponse`: `status`, `error`, `message`, `path`, `timestamp` and `fieldErrors`. A `@RestControllerAdvice` maps the cases:
-  - 400: validation, malformed JSON, type mismatch.
-  - 404: not found.
-  - 409: conflict.
-  - 500: unexpected errors, without leaking details.
+- **Errors (added in Q1, reused by later questions):** every error uses one JSON shape, `ApiError`: `status`, `error`, `message`, `path`, `timestamp` and, for invalid input, `fieldErrors`. `GlobalExceptionHandler` (`@RestControllerAdvice`) maps the cases:
+  - 400: Bean Validation failures, invalid enum or date values in the body (each with a field message), malformed JSON, bad query or path parameters.
+  - 404: `NotFoundException` and unknown URLs.
+  - 405 and 415: Spring's own web exceptions, which carry their status.
+  - 409: a concurrent update of the same row (optimistic locking).
+  - 500: anything else, logged, with no details leaked.
 - **Persistence:** an H2 in-memory database through Spring Data JPA. `ddl-auto=create-drop` and `open-in-view=false`.
 
 ---
@@ -69,21 +70,34 @@ Build a REST API to create, view, update, delete and filter tasks.
 - Invalid input returns 400 with field-level messages. An unknown task returns 404.
 - At least one automated test.
 
-**Planned endpoints**
+**Endpoints**
 
 | Method | Path | Success | Errors |
 |--------|------|---------|--------|
 | POST | `/api/tasks` | 201 + `Location` | 400 |
-| GET | `/api/tasks?status=TODO` | 200 | 400 (unknown status) |
-| GET | `/api/tasks/{id}` | 200 | 404 |
-| PUT | `/api/tasks/{id}` | 200 | 400, 404 |
+| GET | `/api/tasks?status=TODO` | 200, sorted by id | 400 (unknown status) |
+| GET | `/api/tasks/{id}` | 200 | 400 (non-numeric id), 404 |
+| PUT | `/api/tasks/{id}` | 200 | 400, 404, 409 (concurrent edit) |
 | DELETE | `/api/tasks/{id}` | 204 | 404 |
 
-**Planned decisions**
-- `TaskStatus` is an enum: `TODO`, `IN_PROGRESS`, `DONE`. It defaults to `TODO` on create.
-- Validation uses `@NotBlank @Size(max = 100)` on the title and `@FutureOrPresent` on the due date, so a due date of today is allowed.
-- `createdAt` is set by the server and never read from the request.
-- PUT replaces the whole task, which is simpler than PATCH and enough for the spec.
+Request body: `{"title": "...", "description": "...", "status": "TODO|IN_PROGRESS|DONE", "dueDate": "2026-12-31"}`.
+
+**Flow:** `TaskController` (validates with `@Valid`) → `TaskService` (`@Transactional`, rules and defaults) → `TaskRepository` (Spring Data JPA) → H2 `task` table. The `Task` entity is never returned directly; `TaskResponse.from` maps it.
+
+**Decisions**
+- **Status:** `TaskStatus` is an enum stored as text (`EnumType.STRING`), so reordering the enum can't corrupt existing rows. It is optional. Create defaults to `TODO`, and PUT keeps the current status when it is omitted.
+- **Validation:**
+  - `@NotBlank @Size(max = 100)` on the title, and `@Size(max = 1000)` on the description, so an oversized value is a 400 rather than a database error.
+  - `@FutureOrPresent` on the due date, so today is allowed. The rule also applies on PUT: an overdue task needs a new due date when it is updated.
+  - Input is trimmed in the request record's compact constructor, so validation sees the trimmed value.
+- **Field-level errors:** Bean Validation errors are collected per field. An invalid enum or date fails in Jackson before validation runs, so the handler reads the field name from Jackson's exception path. The message lists the allowed values without echoing the input.
+- **`createdAt`** is set by the server and never read from the request.
+- **PUT replaces the whole task.** It is simpler than PATCH and enough for the spec.
+- **Concurrent edits:** `@Version` (optimistic locking) makes two overlapping updates of the same task end in one success and one 409, instead of the last write silently winning.
+  - Alternative: a pessimistic lock, which holds row locks and is unnecessary for rare conflicts.
+  - When two DELETEs overlap, the second returns 204 or 409 depending on timing. Either is fine because DELETE is idempotent.
+  - Known limitation: `version` is not exposed to clients, so the lock only catches requests that overlap in time. Making it catch "read, then write back much later" would need the version, or ETag/If-Match, in the API.
+- **Error record name:** `ApiError` rather than `ErrorResponse`, to avoid clashing with Spring's `org.springframework.web.ErrorResponse`. Spring's own exceptions (404 unknown URL, 405, 415) implement that interface, and the catch-all handler uses it to return their status in our format.
 
 ## Q2: URL Shortener
 

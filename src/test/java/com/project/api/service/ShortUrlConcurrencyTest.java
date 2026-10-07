@@ -17,6 +17,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import com.project.api.contract.ShortenRequest;
+import com.project.api.enums.Role;
+import com.project.api.model.CurrentUser;
+import com.project.api.support.TestUsers;
 
 @SpringBootTest
 class ShortUrlConcurrencyTest {
@@ -26,10 +29,14 @@ class ShortUrlConcurrencyTest {
     @Autowired
     private ShortUrlService service;
 
+    @Autowired
+    private TestUsers testUsers;
+
     @Test
     void visitCountStaysAccurateWhenManyVisitorsOpenTheLinkAtOnce() throws Exception {
+        CurrentUser owner = testUsers.create(Role.USER).currentUser();
         String url = "https://example.com/" + UUID.randomUUID();
-        String code = service.shorten(new ShortenRequest(url, null), "http://localhost").response().code();
+        String code = service.shorten(new ShortenRequest(url, null), "http://localhost", owner).response().code();
 
         CountDownLatch start = new CountDownLatch(1);
         List<Future<String>> visits = new ArrayList<>();
@@ -46,11 +53,12 @@ class ShortUrlConcurrencyTest {
             }
         }
 
-        assertThat(service.stats(code).visits()).isEqualTo(VISITORS);
+        assertThat(service.stats(code, owner).visits()).isEqualTo(VISITORS);
     }
 
     @Test
     void concurrentShortensOfTheSameUrlCreateExactlyOneLink() throws Exception {
+        CurrentUser owner = testUsers.create(Role.USER).currentUser();
         String url = "https://example.com/" + UUID.randomUUID();
 
         CountDownLatch start = new CountDownLatch(1);
@@ -59,7 +67,7 @@ class ShortUrlConcurrencyTest {
             for (int i = 0; i < VISITORS; i++) {
                 results.add(pool.submit(() -> {
                     start.await();
-                    return service.shorten(new ShortenRequest(url, null), "http://localhost");
+                    return service.shorten(new ShortenRequest(url, null), "http://localhost", owner);
                 }));
             }
             start.countDown();

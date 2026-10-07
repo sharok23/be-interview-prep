@@ -16,23 +16,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDate;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.jayway.jsonpath.JsonPath;
+import com.project.api.enums.Role;
+import com.project.api.support.TestUsers;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 class TaskControllerTest {
 
     private static final LocalDate TOMORROW = LocalDate.now().plusDays(1);
 
     @Autowired
+    private TestUsers testUsers;
+
+    private TestUsers.Account account;
     private MockMvc mvc;
+
+    @BeforeEach
+    void signIn() {
+        account = testUsers.create(Role.USER);
+        mvc = testUsers.mockMvcAs(account);
+    }
 
     @Test
     void createReturns201WithDefaultsAndLocation() throws Exception {

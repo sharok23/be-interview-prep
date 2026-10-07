@@ -169,6 +169,17 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.fieldErrors['items[0].quantity']").value("quantity must be at least 1"));
         place(alice, newKey(), "[{\"productId\": 999999, \"quantity\": 1}]")
                 .andExpect(status().isNotFound());
+        place(alice, "   ", "[{\"productId\": %d, \"quantity\": 1}]".formatted(lamp))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['Idempotency-Key']").exists());
+        place(alice, "k".repeat(101), "[{\"productId\": %d, \"quantity\": 1}]".formatted(lamp))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['Idempotency-Key']")
+                        .value("Idempotency-Key header must be 1 to 100 characters"));
+        mvc.perform(get("/api/orders/abc").header(HttpHeaders.AUTHORIZATION, alice))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/orders/abc/cancel").header(HttpHeaders.AUTHORIZATION, alice))
+                .andExpect(status().isBadRequest());
         mvc.perform(post("/api/orders").header(OrderService.IDEMPOTENCY_HEADER, newKey())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"items\": []}"))
                 .andExpect(status().isUnauthorized());

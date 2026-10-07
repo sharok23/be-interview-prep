@@ -92,6 +92,23 @@ class OrderConcurrencyTest {
     }
 
     @Test
+    void simultaneousRetriesForTheLastUnitsAllGetTheOriginalOrder() throws Exception {
+        long productId = product(2);
+        CurrentUser customer = testUsers.create(Role.USER).currentUser();
+        String key = UUID.randomUUID().toString();
+        OrderRequest lastTwoUnits = orderOf(productId, 2);
+
+        List<Future<PlaceResult>> results = runTogether(10, () -> orderService.place(lastTwoUnits, key, customer));
+
+        Set<Long> orderIds = new HashSet<>();
+        for (Future<PlaceResult> result : results) {
+            orderIds.add(result.get().order().id());
+        }
+        assertThat(orderIds).hasSize(1);
+        assertThat(stockOf(productId)).isZero();
+    }
+
+    @Test
     void simultaneousCancelsReturnStockOnlyOnce() throws Exception {
         long productId = product(10);
         CurrentUser customer = testUsers.create(Role.USER).currentUser();

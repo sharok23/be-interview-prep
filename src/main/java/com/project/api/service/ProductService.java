@@ -1,10 +1,11 @@
 package com.project.api.service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -35,7 +36,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public PageResponse<ProductResponse> search(String category, BigDecimal minPrice, BigDecimal maxPrice,
-                                                Boolean inStock, String nameQuery, int page, int size, String sort) {
+                                                Boolean inStock, String nameQuery, int page, int size,
+                                                List<String> sort) {
         if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
             throw new BadRequestException("minPrice", "minPrice must not be greater than maxPrice");
         }
@@ -44,7 +46,7 @@ public class ProductService {
         return PageResponse.from(repository.findAll(spec, pageRequest), ProductResponse::from);
     }
 
-    @Cacheable(cacheNames = CacheConfig.PRODUCTS, key = "#id")
+    @Cacheable(cacheNames = CacheConfig.PRODUCTS, key = "#id", sync = true)
     @Transactional(readOnly = true)
     public ProductResponse get(Long id) {
         return ProductResponse.from(find(id));
@@ -57,7 +59,7 @@ public class ProductService {
         return ProductResponse.from(repository.save(product));
     }
 
-    @CachePut(cacheNames = CacheConfig.PRODUCTS, key = "#id")
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS, key = "#id")
     @Transactional
     public ProductResponse update(Long id, ProductRequest request) {
         Product product = find(id);
@@ -75,11 +77,21 @@ public class ProductService {
         return repository.findById(id).orElseThrow(() -> new NotFoundException("Product", id));
     }
 
-    private static Sort parseSort(String sort) {
-        if (sort == null || sort.isBlank()) {
-            return Sort.by("id");
+    private static Sort parseSort(List<String> sortParams) {
+        List<Sort.Order> orders = new ArrayList<>();
+        if (sortParams != null) {
+            for (String param : sortParams) {
+                orders.add(parseOrder(param));
+            }
         }
-        String[] parts = sort.split(",");
+        if (orders.stream().noneMatch(order -> order.getProperty().equals("id"))) {
+            orders.add(Sort.Order.asc("id"));
+        }
+        return Sort.by(orders);
+    }
+
+    private static Sort.Order parseOrder(String param) {
+        String[] parts = param.split(",", -1);
         String field = parts[0].trim();
         if (!SORTABLE.contains(field) || parts.length > 2) {
             throw new BadRequestException("sort", "sort must be one of %s, optionally followed by ,asc or ,desc"
@@ -89,7 +101,6 @@ public class ProductService {
         if (!direction.equalsIgnoreCase("asc") && !direction.equalsIgnoreCase("desc")) {
             throw new BadRequestException("sort", "sort direction must be asc or desc");
         }
-        Sort primary = Sort.by(Sort.Direction.fromString(direction), field);
-        return field.equals("id") ? primary : primary.and(Sort.by("id"));
+        return new Sort.Order(Sort.Direction.fromString(direction), field);
     }
 }

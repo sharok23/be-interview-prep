@@ -64,6 +64,11 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
     }
 
+    @ExceptionHandler(GoneException.class)
+    ResponseEntity<ApiError> handleGone(GoneException ex, HttpServletRequest req) {
+        return respond(HttpStatus.GONE, ex.getMessage(), req, null);
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest req) {
         if (ex instanceof ErrorResponse springError) {

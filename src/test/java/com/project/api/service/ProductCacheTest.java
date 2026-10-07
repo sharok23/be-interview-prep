@@ -96,17 +96,18 @@ class ProductCacheTest {
             return result;
         }).when(repository).findById(id);
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
             Future<?> slowRead = pool.submit(() -> service.get(id));
             assertThat(loaded.await(5, TimeUnit.SECONDS)).isTrue();
 
-            Future<?> update = pool.submit(() -> service.update(id,
+            Thread updater = new Thread(() -> service.update(id,
                     new ProductRequest("Updated", "Home", new BigDecimal("12.00"), 1, new BigDecimal("4.5"))));
+            updater.start();
             awaitCommittedName(id, "Updated");
-            Thread.sleep(200);
+            awaitBlockedOrDone(updater);
             release.countDown();
             slowRead.get(5, TimeUnit.SECONDS);
-            update.get(5, TimeUnit.SECONDS);
+            updater.join(5_000);
         }
 
         assertThat(service.get(id).name()).isEqualTo("Updated");
@@ -123,6 +124,18 @@ class ProductCacheTest {
     private long newProduct() {
         String name = "cached-" + UUID.randomUUID();
         return repository.save(new Product(name, "Home", new BigDecimal("10.00"), 5, new BigDecimal("3.5"))).getId();
+    }
+
+    private static void awaitBlockedOrDone(Thread thread) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (System.currentTimeMillis() < deadline) {
+            Thread.State state = thread.getState();
+            if (state == Thread.State.WAITING || state == Thread.State.BLOCKED || state == Thread.State.TERMINATED) {
+                return;
+            }
+            Thread.sleep(10);
+        }
+        throw new AssertionError("update thread neither finished nor blocked on the cache");
     }
 
     private void awaitCommittedName(long id, String expected) throws InterruptedException {
